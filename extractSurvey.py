@@ -12,7 +12,8 @@ if not os.path.isfile(FILE_PATH):
     ddf = dd.read_parquet(BUCKET_URL, columns=["date", "body", "custom"])
     ddf.to_csv(FILE_PATH, single_file=True, index=False)
 
-df = dd.read_csv(FILE_PATH)
+print('Reading file...')
+df = dd.read_csv(FILE_PATH).sort_values('date')
 
 def normalizeText(text):
     return unicodedata.normalize("NFKD", text).encode("ASCII", "ignore")
@@ -20,6 +21,12 @@ def normalizeText(text):
 def getDate(dict):
     try:
         return dict["surveyAnswersSaved"]["start"]
+    except:
+        return None
+    
+def getCorrelationId(dict):
+    try:
+        return dict["correlationId"]
     except:
         return None
 
@@ -102,6 +109,7 @@ def getAnswer(dict, numberAnswer):
 def create_survey():
     return dict(
         {
+            "correlationId": [],
             "InicioPesquisa": [],
             "Slug": [],
             "Proposta": [],
@@ -134,6 +142,7 @@ for row in df.iterrows():
         body = json.loads(row[-1]["body"])
         custom = json.loads(row[-1]["custom"])
         currentData = {
+            "correlationId": getCorrelationId(custom),
             "InicioPesquisa": getDate(custom),
             "Slug": getSlug(custom),
             "Proposta": getProposal(body),
@@ -164,22 +173,29 @@ onb = dd.DataFrame.from_dict(listSurveys["pesquisa-onb"], npartitions=1)
 cpf = dd.DataFrame.from_dict(listSurveys["pesquisa-cpf-engajamento"], npartitions=1)
 postpaid = dd.DataFrame.from_dict(listSurveys["pesquisa-post-paid"], npartitions=1)
 
+scobWithoutDuplicates = scob.drop_duplicates(subset=["correlationId", "InicioPesquisa"],keep='last').drop(columns=["correlationId"])
+selfcareWithoutDuplicates = selfcare.drop_duplicates(subset=["correlationId", "InicioPesquisa"],keep='last').drop(columns=["correlationId"])
+preWithoutDuplicates = pre.drop_duplicates(subset=["correlationId", "InicioPesquisa"],keep='last').drop(columns=["correlationId"])
+onbWithoutDuplicates = onb.drop_duplicates(subset=["correlationId", "InicioPesquisa"],keep='last').drop(columns=["correlationId"])
+cpfWithoutDuplicates = cpf.drop_duplicates(subset=["correlationId", "InicioPesquisa"],keep='last').drop(columns=["correlationId"])
+postpaidWithoutDuplicates = postpaid.drop_duplicates(subset=["correlationId", "InicioPesquisa"],keep='last').drop(columns=["correlationId"])
+
 print("Writing files...")
 dd.to_csv(
-    scob, "./extract/pesquisa-scob.csv", single_file=True, index=False, encoding="utf-8"
+    scobWithoutDuplicates, "./extract/pesquisa-scob.csv", single_file=True, index=False, encoding="utf-8"
 )
 dd.to_csv(
-    selfcare,"./extract/pesquisa-selfcare.csv", single_file=True, index=False, encoding="utf-8",
+    selfcareWithoutDuplicates,"./extract/pesquisa-selfcare.csv", single_file=True, index=False, encoding="utf-8",
 )
 dd.to_csv(
-    pre, "./extract/pesquisa-pre.csv", single_file=True, index=False, encoding="utf-8"
+    preWithoutDuplicates, "./extract/pesquisa-pre.csv", single_file=True, index=False, encoding="utf-8"
 )
 dd.to_csv(
-    onb, "./extract/pesquisa-onb.csv", single_file=True, index=False, encoding="utf-8"
+    onbWithoutDuplicates, "./extract/pesquisa-onb.csv", single_file=True, index=False, encoding="utf-8"
 )
 dd.to_csv(
-    cpf,"./extract/pesquisa-cpf-engajamento.csv", single_file=True, index=False, encoding="utf-8",
+    cpfWithoutDuplicates,"./extract/pesquisa-cpf-engajamento.csv", single_file=True, index=False, encoding="utf-8",
 )
 dd.to_csv(
-    postpaid,"./extract/pesquisa-post-paid.csv", single_file=True, index=False, encoding="utf-8",
+    postpaidWithoutDuplicates,"./extract/pesquisa-post-paid.csv", single_file=True, index=False, encoding="utf-8",
 )
